@@ -278,8 +278,12 @@ public
   # Define media for fandoms menu
   before_filter :set_media
   def set_media
-    uncategorized = Media.uncategorized
-    @menu_media = Media.by_name - [Media.find_by_name(ArchiveConfig.MEDIA_NO_TAG_NAME), uncategorized] + [uncategorized]
+    @menu_media = Rails.cache.fetch("/v1/main_menu/media", expires_in: 20.min, race_condition_ttl: 5) do
+      uncategorized = Media.uncategorized
+      no_media = Media.find_by_name(ArchiveConfig.MEDIA_NO_TAG_NAME)
+      # Make sure that no_media isn't included, and uncategorized is always last.
+      (Media.by_name - [no_media, uncategorized]) + [uncategorized]
+    end
   end
 
   ### GLOBALIZATION ###
