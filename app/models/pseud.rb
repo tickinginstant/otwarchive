@@ -476,7 +476,7 @@ class Pseud < ApplicationRecord
   end
 
   def document_json
-    PseudIndexer.new({}).document(self)
+    PseudIndexer.new([id]).document(self)
   end
 
   def self.search(options={})

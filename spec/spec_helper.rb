@@ -219,3 +219,12 @@ def create_archivist
   user.roles << Role.create(name: "archivist")
   user
 end
+
+# Make sure that there are no database queries beyond this point.
+def expect_no_queries
+  expect(ActiveRecord::Base.connection).not_to receive(:exec_delete)
+  expect(ActiveRecord::Base.connection).not_to receive(:exec_insert)
+  expect(ActiveRecord::Base.connection).not_to receive(:exec_query)
+  expect(ActiveRecord::Base.connection).not_to receive(:exec_update)
+  expect(ActiveRecord::Base.connection).not_to receive(:execute)
+end

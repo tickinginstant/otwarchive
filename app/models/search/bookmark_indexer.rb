@@ -4,6 +4,11 @@ class BookmarkIndexer < Indexer
     "Bookmark"
   end
 
+  def self.klass_with_includes
+    Bookmark.includes(:bookmarkable, :tags, :approved_collections,
+                      pseud: [:user])
+  end
+
   # Create the bookmarkable index/mapping first
   # Skip delete on the subclasses so it doesn't delete the ones we've just
   # reindexed

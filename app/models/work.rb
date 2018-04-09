@@ -1529,7 +1529,7 @@ class Work < ApplicationRecord
   end
 
   def user_ids
-    Pseud.where(id: pseud_ids).pluck(:user_id)
+    pseuds.pluck(:user_id)
   end
 
   def collection_ids
@@ -1574,14 +1574,20 @@ class Work < ApplicationRecord
   # A work with multiple fandoms which are not related
   # to one another can be considered a crossover
   def crossover
-    fandoms.count > 1 && filters.by_type('Fandom').first_class.count > 1
+    return false if fandoms.size <= 1
+
+    top_level_fandoms = filters.select do |filter|
+      filter.is_a?(Fandom) && filter.meta_taggings.empty?
+    end
+
+    top_level_fandoms.uniq.size == 1
   end
 
   # Does this work have only one relationship tag?
   # (not counting synonyms)
   def otp
-    return true if relationships.count == 1
-    all_without_syns = relationships.map { |r| r.merger ? r.merger : r }.uniq.compact
+    return true if relationships.size == 1
+    all_without_syns = relationships.map { |r| r.merger_id || r.id }.uniq.compact
     all_without_syns.count == 1
   end
 

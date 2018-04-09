@@ -18,6 +18,11 @@ class Series < ApplicationRecord
 
   has_many :subscriptions, as: :subscribable, dependent: :destroy
 
+  # These are the works that are included when computing tags and filters for
+  # indexing (i.e. the ones that will show up in search).
+  has_many :works_for_search, -> { merge(Work.visible_to_registered_user) },
+           through: :serial_works, source: :work
+
   validates_presence_of :title
   validates_length_of :title,
     minimum: ArchiveConfig.TITLE_MIN,
@@ -229,11 +234,12 @@ class Series < ApplicationRecord
       root: false,
       only: [:title, :summary, :hidden_by_admin, :restricted, :created_at,
         :complete],
-      methods: [:revised_at, :posted, :tag, :filter_ids, :rating_ids,
+      methods: [:posted, :tag, :filter_ids, :rating_ids,
         :warning_ids, :category_ids, :fandom_ids, :character_ids,
         :relationship_ids, :freeform_ids, :pseud_ids, :creators, :language_id,
         :word_count, :work_types]
     ).merge(
+      revised_at: revised_at_for_search,
       anonymous: anonymous?,
       unrevealed: unrevealed?,
       bookmarkable_type: 'Series',
@@ -241,34 +247,47 @@ class Series < ApplicationRecord
     )
   end
 
+  # A special function for returning the series' "revised_at" value for use in
+  # search. Differs from the general revised_at function because it doesn't
+  # adjust the date based on whether the user is logged in or not.
+  def revised_at_for_search
+    return updated_at if works_for_search.empty?
+    works_for_search.map(&:revised_at).compact.uniq.sort.last
+  end
+
   def word_count
-    self.works.posted.pluck(:word_count).compact.sum
+    works_for_search.pluck(:word_count).compact.sum
   end
 
   # FIXME: should series have their own language?
   def language_id
-    works.first.language_id if works.present?
+    works_for_search.first.language_id if works.present?
   end
 
   def posted
-    !posted_works.empty?
+    works_for_search.any?(&:posted)
   end
   alias_method :posted?, :posted
 
   # Simple name to make it easier for people to use in full-text search
   def tag
-    (work_tags + filters).uniq.map{ |t| t.name }
+    works_for_search.flat_map do |work|
+      work.tags.pluck(:name) + work.filters.pluck(:name)
+    end.uniq
   end
 
   # Index all the filters for pulling works
   def filter_ids
-    (work_tags.pluck(:id) + filters.pluck(:id)).uniq
+    works_for_search.flat_map do |work|
+      work.tags.pluck(:id) + work.filters.pluck(:id)
+    end.uniq
   end
 
   # Index only direct filters (non meta-tags) for facets
   def filters_for_facets
-    @filters_for_facets ||= direct_filters
+    @filters_for_facets ||= works_for_search.flat_map(&:direct_filters).uniq
   end
+
   def rating_ids
     filters_for_facets.select{ |t| t.type.to_s == 'Rating' }.map{ |t| t.id }
   end
@@ -300,6 +319,6 @@ class Series < ApplicationRecord
   end
 
   def work_types
-    works.map(&:work_types).flatten.uniq
+    works_for_search.map(&:work_types).flatten.uniq
   end
 end

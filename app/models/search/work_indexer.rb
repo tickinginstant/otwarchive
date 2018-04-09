@@ -4,6 +4,12 @@ class WorkIndexer < Indexer
     "Work"
   end
 
+  def self.klass_with_includes
+    Work.includes(:tags, :direct_filters, :fandoms, :relationships,
+                  :external_authors, :approved_collections, :stat_counter,
+                  filters: [:meta_taggings], pseuds: [:user])
+  end
+
   def self.mapping
     {
       "work" => {

@@ -12,7 +12,7 @@ class Indexer
     "ExternalWork" => %w(BookmarkedExternalWorkIndexer)
   }.freeze
 
-  delegate :klass, :index_name, :document_type, to: :class
+  delegate :klass, :klass_with_includes, :index_name, :document_type, to: :class
 
   ##################
   # CLASS METHODS
@@ -20,6 +20,14 @@ class Indexer
 
   def self.klass
     raise "Must be defined in subclass"
+  end
+
+  # Function used to make it easier to load a class with a bunch of includes in
+  # order to reduce N+1 errors. Override in subclasses with, e.g.
+  #   Work.includes(:tags, :filters, :pseuds)
+  def self.klass_with_includes
+    Rails.logger.info "Blueshirt: Logging use of constantize class objects #{klass}"
+    klass.constantize
   end
 
   # Originally added to allow IndexSweeper to find the Elasticsearch document
@@ -137,8 +145,7 @@ class Indexer
   end
 
   def objects
-    Rails.logger.info "Blueshirt: Logging use of constantize class objects #{klass}"
-    @objects ||= klass.constantize.where(id: ids).inject({}) do |h, obj|
+    @objects ||= klass_with_includes.where(id: ids).inject({}) do |h, obj|
       h.merge(obj.id => obj)
     end
   end

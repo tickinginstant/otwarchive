@@ -277,7 +277,7 @@ module Taggable
 
   # Index only direct filters (non meta-tags) for facets
   def filters_for_facets
-    @filters_for_facets ||= filters.where("filter_taggings.inherited = 0")
+    @filters_for_facets ||= direct_filters
   end
   def rating_ids
     filters_for_facets.select{ |t| t.type.to_s == 'Rating' }.map{ |t| t.id }
