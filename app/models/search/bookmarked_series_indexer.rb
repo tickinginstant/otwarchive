@@ -5,7 +5,7 @@ class BookmarkedSeriesIndexer < BookmarkableIndexer
 
   def self.klass_with_includes
     Series.includes(:works,
-                    public_works: [:tags, :filters, :direct_filters],
+                    works_for_search: [:tags, :filters, :direct_filters],
                     pseuds: [:user])
   end
 end
