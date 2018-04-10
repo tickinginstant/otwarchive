@@ -261,7 +261,7 @@ class Series < ApplicationRecord
 
   # FIXME: should series have their own language?
   def language_id
-    works_for_search.first.language_id if works.present?
+    works_for_search.first.language_id if works_for_search.present?
   end
 
   def posted

@@ -226,5 +226,4 @@ def expect_no_queries
   expect(ActiveRecord::Base.connection).not_to receive(:exec_insert)
   expect(ActiveRecord::Base.connection).not_to receive(:exec_query)
   expect(ActiveRecord::Base.connection).not_to receive(:exec_update)
-  expect(ActiveRecord::Base.connection).not_to receive(:execute)
 end
