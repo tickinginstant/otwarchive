@@ -51,6 +51,45 @@ public
     REDIS_GENERAL.get(interrupt_key(collection)) == "1"
   end
 
+  ##########
+  # ERROR METHODS
+  ##########
+
+  ERROR_KEY = "potential_match_errors".freeze
+
+  def self.retrieve_error(collection)
+    REDIS_GENERAL.hget(ERROR_KEY, collection.id)
+  end
+
+  def self.errored?(collection)
+    retrieve_error(collection).present?
+  end
+
+  def self.handle_error(collection, exception)
+    message = [exception.message] + exception.backtrace
+
+    REDIS_GENERAL.hset(ERROR_KEY, collection.id, message.join("\n"))
+    REDIS_GENERAL.del progress_key(collection)
+    REDIS_GENERAL.del signup_key(collection)
+    REDIS_GENERAL.del interrupt_key(collection)
+
+    clear!(collection)
+  end
+
+  def self.clear_error(collection)
+    # Keep a copy of the stack trace, to help track down intermittent errors.
+    error = retrieve_error(collection)
+    REDIS_GENERAL.sadd("#{ERROR_KEY}_cache", error) if error.present?
+
+    # But the specific association of the error with the collection should be
+    # deleted.
+    REDIS_GENERAL.hdel(ERROR_KEY, collection.id)
+  end
+
+  ##########
+  # END ERROR METHODS
+  ##########
+
   @queue = :collection
 
   # This only works on class methods
@@ -87,6 +126,9 @@ public
       return
     end
 
+    # Reset the error info.
+    clear_error(collection)
+
     # check for invalid signups
     PotentialMatch.clear_invalid_signups(collection)
     invalid_signup_ids = collection.signups.select {|s| !s.valid?}.collect(&:id)
@@ -108,8 +150,11 @@ public
 
       matcher.generate
     end
+
     # TODO: for any signups with no potential matches try regenerating?
     PotentialMatch.finish_generation(collection)
+  rescue StandardError => e
+    handle_error(collection, e)
   end
 
   # Generate potential matches for a single signup.

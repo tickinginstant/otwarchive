@@ -329,6 +329,43 @@ class ChallengeAssignment < ApplicationRecord
     REDIS_GENERAL.get(progress_key(collection)) ? true : false
   end
 
+  ##########
+  # ERROR METHODS
+  ##########
+
+  ERROR_KEY = "challenge_assignment_errors".freeze
+
+  def self.retrieve_error(collection)
+    REDIS_GENERAL.hget(ERROR_KEY, collection.id)
+  end
+
+  def self.errored?(collection)
+    retrieve_error(collection).present?
+  end
+
+  def self.handle_error(collection, exception)
+    message = [exception.message] + exception.backtrace
+
+    REDIS_GENERAL.hset(ERROR_KEY, collection.id, message.join("\n"))
+    REDIS_GENERAL.del progress_key(collection)
+
+    clear!(collection)
+  end
+
+  def self.clear_error(collection)
+    # Keep a copy of the stack trace, to help track down intermittent errors.
+    error = retrieve_error(collection)
+    REDIS_GENERAL.sadd("#{ERROR_KEY}_cache", error) if error.present?
+
+    # But the specific association of the error with the collection should be
+    # deleted.
+    REDIS_GENERAL.hdel(ERROR_KEY, collection.id)
+  end
+
+  ##########
+  # END ERROR METHODS
+  ##########
+
   def self.delayed_generate(collection_id)
     collection = Collection.find(collection_id)
 
@@ -338,6 +375,9 @@ class ChallengeAssignment < ApplicationRecord
       # after sending assignments, they can use the Purge Assignments button.)
       return
     end
+
+    # Reset the error info.
+    clear_error(collection)
 
     settings = collection.challenge.potential_match_settings
 
@@ -392,6 +432,8 @@ class ChallengeAssignment < ApplicationRecord
     end
     REDIS_GENERAL.del(progress_key(collection))
     UserMailer.potential_match_generation_notification(collection.id).deliver
+  rescue StandardError => e
+    handle_error(collection, e)
   end
 
   # go through the request's potential matches in order from best to worst and try and assign

@@ -2,6 +2,26 @@ require 'spec_helper'
 
 describe ChallengeAssignment do
 
+  describe "when generating assignments" do
+    let(:settings) { PotentialMatchSettings.create }
+    let(:challenge) do
+      create(:gift_exchange, potential_match_settings: settings)
+    end
+    let(:collection) { create(:collection, challenge: challenge) }
+
+    let!(:signup1) { create(:challenge_signup, collection_id: collection.id) }
+    let!(:signup2) { create(:challenge_signup, collection_id: collection.id) }
+
+    it "should handle errors gracefully" do
+      allow(ChallengeAssignment).to receive(:new).and_raise
+      PotentialMatch.generate(collection)
+      expect(PotentialMatch.errored?(collection)).to be_falsey
+      expect(ChallengeAssignment.errored?(collection)).to be_truthy
+      expect(collection.potential_matches.count).to eq 2
+      expect(collection.assignments.count).to eq 0
+    end
+  end
+
   describe "a challenge assignment" do
     before do
       @assignment = create(:challenge_assignment)

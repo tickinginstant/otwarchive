@@ -63,8 +63,16 @@ class PotentialMatchesController < ApplicationController
       @progress = PotentialMatch.progress(@collection)
     elsif ChallengeAssignment.in_progress?(@collection)
       @assignment_in_progress = true
+    elsif PotentialMatch.errored?(@collection)
+      # PotentialMatch.generate_in_background raised a StandardError.
+      flash.now[:error] = ts("There was an error while generating potential matches. Please try again. If the problem persists, please contact Support.")
+    elsif ChallengeAssignment.errored?(@collection)
+      # ChallengeAssignment.delayed_generate raised a StandardError.
+      flash.now[:error] = ts("There was an error while generating assignments. Please try regenerating assignments, and if that doesn't work, all potential matches. If the problem persists, please contact Support.")
     elsif @collection.potential_matches.count > 0 && @collection.assignments.count == 0
-      flash[:error] = ts("There has been an error in the potential matching. Please first try regenerating assignments, and if that doesn't work, all potential matches. If the problem persists, please contact Support.")
+      # Somehow we've ended up with missing assignments despite having no
+      # record of an error occurring during matching.
+      flash.now[:error] = ts("An unidentified error has occured. Please first try regenerating assignments, and if that doesn't work, all potential matches. If the problem persists, please contact Support.")
     elsif @collection.potential_matches.count > 0
       # we have potential_matches and assignments
 
