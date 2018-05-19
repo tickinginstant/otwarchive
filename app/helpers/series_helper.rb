@@ -55,8 +55,8 @@ module SeriesHelper
     end
   end
 
-  def work_series_description(work, series)
-    serial = SerialWork.where(work_id: work.id, series_id: series.id).first
+  def work_series_description(serial)
+    series = serial.series
     ts("Part <strong>#{serial.position}</strong> of #{link_to(series.title, series)}").html_safe
   end
 

@@ -46,6 +46,7 @@ class WorksController < ApplicationController
       end
 
       @works = @search.search_results
+      preload_fields_for_blurbs(@works)
       render 'search_results'
     end
   end
@@ -97,7 +98,7 @@ class WorksController < ApplicationController
 
     if @owner.present?
       if @admin_settings.disable_filtering?
-        @works = Work.includes(:tags, :external_creatorships, :series, :language, collections: [:collection_items], pseuds: [:user]).list_without_filters(@owner, options)
+        @works = Work.list_without_filters(@owner, options)
       else
         # ES UPGRADE TRANSITION #
         # Remove conditional and call to WorkSearch
@@ -116,6 +117,8 @@ class WorksController < ApplicationController
           user = logged_in? || logged_in_as_admin? ? 'logged_in' : 'logged_out'
           @works = Rails.cache.fetch("#{@owner.works_index_cache_key(subtag)}_#{user}_page#{params[:page]}", expires_in: 20.minutes) do
             results = @search.search_results
+            # Make sure we're caching the preloaded fields, as well:
+            preload_fields_for_blurbs(results)
             # calling this here to avoid frozen object errors
             results.items
             results.facets
@@ -136,11 +139,14 @@ class WorksController < ApplicationController
       end
     elsif use_caching?
       @works = Rails.cache.fetch('works/index/latest/v1', expires_in: 10.minutes) do
-        Work.latest.includes(:tags, :external_creatorships, :series, :language, collections: [:collection_items], pseuds: [:user]).to_a
+        # Make sure we're caching the preloaded fields.
+        preload_fields_for_blurbs(Work.latest.to_a)
       end
     else
-      @works = Work.latest.includes(:tags, :external_creatorships, :series, :language, collections: [:collection_items], pseuds: [:user]).to_a
+      @works = Work.latest.to_a
     end
+
+    preload_fields_for_blurbs(@works)
   end
 
   def collected
@@ -167,6 +173,7 @@ class WorksController < ApplicationController
     end
 
     @page_subtitle = ts('%{username} - Collected Works', username: @user.login)
+    preload_fields_for_blurbs(@works)
   end
 
   def drafts
@@ -190,6 +197,8 @@ class WorksController < ApplicationController
     else
       @works = @user.unposted_works.paginate(page: params[:page])
     end
+
+    preload_fields_for_blurbs(@works)
   end
 
   # GET /works/1
@@ -1047,6 +1056,11 @@ class WorksController < ApplicationController
       external_coauthor_email: params[:external_coauthor_email],
       language_id: params[:language_id]
     }
+  end
+
+  def preload_fields_for_blurbs(array)
+    preload_fields(array, [:tags, :external_creatorships, :series, :language,
+                           :approved_collections, pseuds: [:user]])
   end
 
   def work_params

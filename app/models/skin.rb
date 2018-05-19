@@ -352,6 +352,13 @@ class Skin < ApplicationRecord
       # cached skin in a directory
       block = get_cached_style(roles_to_include)
     else
+      preloader = ActiveRecord::Associations::Preloader.new
+      ancestors = parent_skins.to_a
+      until ancestors.empty?
+        preloader.preload(ancestors, [:parent_skins])
+        ancestors = ancestors.flat_map(&:parent_skins).compact.uniq
+      end
+
       # recursively get parents
       parent_skins.each do |parent|
         block += parent.get_style_block(roles_to_include) + "\n"

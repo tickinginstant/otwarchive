@@ -486,4 +486,14 @@ public
                       :store_location,
                       if: proc { %w(js json).include?(request.format) }
 
+  # Preload the passed-in list of fields for the given array. Takes fields in
+  # the same format as includes(), so that you can recursively load relations
+  # as well. Returns the array for easy chaining.
+  def preload_fields(array, fields)
+    return if array.blank? || fields.blank?
+
+    @preloader ||= ActiveRecord::Associations::Preloader.new
+    @preloader.preload(array, fields)
+    array # return the array for easy chaining
+  end
 end

@@ -5,20 +5,27 @@ module Collectible
 
       has_many :collection_items, as: :item, dependent: :destroy, inverse_of: :item
       accepts_nested_attributes_for :collection_items, allow_destroy: true
-      has_many :approved_collection_items, -> { where('collection_items.user_approval_status = ? AND collection_items.collection_approval_status = ?', CollectionItem::APPROVED, CollectionItem::APPROVED) }, class_name: "CollectionItem", as: :item
-      has_many :user_approved_collection_items, -> { where('collection_items.user_approval_status = ?', CollectionItem::APPROVED) }, class_name: "CollectionItem", as: :item
+      has_many :approved_collection_items,
+               -> { CollectionItem.approved_by_collection },
+               class_name: "CollectionItem", as: :item
+      has_many :user_approved_collection_items,
+               -> { CollectionItem.approved_by_user },
+               class_name: "CollectionItem", as: :item
 
       has_many :collections,
                through: :collection_items,
                after_add: [:set_visibility, :expire_item_caches],
                after_remove: [:update_visibility, :expire_item_caches]
-      has_many :approved_collections, -> { Collection.approved },
+      has_many :approved_collections,
+               -> { CollectionItem.approved_by_collection },
                through: :collection_items,
                source: :collection
-      has_many :user_approved_collections, -> { Collection.user_approved },
+      has_many :user_approved_collections,
+               -> { CollectionItem.approved_by_user },
                through: :collection_items,
                source: :collection
-      has_many :rejected_collections, -> { Collection.rejected },
+      has_many :rejected_collections,
+               -> { CollectionItem.rejected_by_user },
                through: :collection_items,
                source: :collection
     end
