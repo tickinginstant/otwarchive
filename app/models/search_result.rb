@@ -38,7 +38,7 @@ class SearchResult
   end
 
   def to_ary
-    self
+    items
   end
 
   def facets
