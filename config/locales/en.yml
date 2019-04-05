@@ -400,6 +400,9 @@ en:
       fix_counts:
         title: "Fix Tag Counts"
         description: "Try to recalculate some counts associated with this tag (both filter counts and taggings counts). Keep in mind that the tag counts listed in the fandom lists include unrevealed works, so if the count is only a little off it may just be unrevealed drafts."
+      fix_meta_tags:
+        title: "Fix Meta Tags"
+        description: "Recalculate inherited meta tags. This should be used in cases where A is a meta tag of B, and B is a meta tag of C, but works tagged with C aren't showing up in the listings for A. (Or, conversely, if the works for C keep showing up in the listings for A even after one of the links in the meta tag chain is broken.)"
       fix_associations:
         title: "Fix Tag Associations"
         description: "Try to delete invalid associations involving this tag. (e.g. Parents of the wrong type, children of the wrong type, duplicate parents/children/meta-tags/sub-tags, etc.)"
