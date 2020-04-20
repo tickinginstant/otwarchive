@@ -28,7 +28,7 @@ var DEFAULT_SETTINGS = {
     processPrePopulate: false,
     makeSortable: false,
     escapeHTML: true,
-    animateDropdown: true,
+    animateDropdown: false,
     onResult: null,
     onAdd: null,
     onDelete: null,
@@ -321,7 +321,6 @@ $.TokenList = function (input, url_or_data, settings) {
                 case KEY.TAB:
                 case KEY.ENTER:
                 case KEY.NUMPAD_ENTER:
-                  console.log("pressed enter");
                   if(selected_dropdown_item) {
                     add_token($(selected_dropdown_item));
                     deselect_dropdown_item($(selected_dropdown_item));
@@ -559,7 +558,6 @@ $.TokenList = function (input, url_or_data, settings) {
 
     // Add a token to the token list based on user input
     function add_token (item) {
-        console.log("add_token");
         var li_data;
         if ($.type(item) === "string"){
             li_data = {id: item, name: item};
@@ -614,7 +612,6 @@ $.TokenList = function (input, url_or_data, settings) {
         
         // trigger our onchange event
         input_box.change();
-        console.log("end of add_token");
     }
         
 
@@ -779,14 +776,12 @@ $.TokenList = function (input, url_or_data, settings) {
     function populate_dropdown (query, results) {
         if(results && results.length) {
             dropdown.empty();
-            console.log("generating dropdown");
             var dropdown_ul = $("<ul role=\"listbox\" aria-activedescendant=\"ui-active-menuitem\">")
                 .appendTo(dropdown)
                 .mouseover(function (event) {
                     select_dropdown_item($(event.target).closest("li"));
                 })
                 .mousedown(function (event) {
-                    console.log("mousedown");
                     add_token($(event.target).closest("li"));
                     return false;
                 })
@@ -812,10 +807,8 @@ $.TokenList = function (input, url_or_data, settings) {
             show_dropdown();
 
             if(settings.animateDropdown) {
-                console.log("sliding down dropdown")
                 dropdown_ul.slideDown("fast");
             } else {
-                console.log("immediately showing dropdown")
                 dropdown_ul.show();
             }
         } else {
