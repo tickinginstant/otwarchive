@@ -33,10 +33,18 @@
       return elem === doc.activeElement && !!(elem.type || elem.href);
     }
   </script>
+  <!--
+    Disable JS effects, because the autocomplete dropdown cannot be clicked
+    while it's in the slideDown animation. This causes intermittent JS
+    failures.
+  -->
+  <script type="text/javascript">
+    jQuery.fx.off = true;
+  </script>
 <% end %>
 
 <script type="text/javascript">$j = jQuery.noConflict();</script>
-<%= javascript_include_tag "jquery.scrollTo.min", "jquery.livequery.min", "rails", "application", "bootstrap/bootstrap-dropdown.min", "jquery-shuffle", "jquery.tokeninput", "jquery.trap.min", "ao3modal.min", "js.cookie.min", skip_pipeline: true %>
+<%= javascript_include_tag "jquery.scrollTo.min", "jquery.livequery.min", "rails", "application", "bootstrap/bootstrap-dropdown.min", "jquery-shuffle", "jquery.tokeninput.min", "jquery.trap.min", "ao3modal.min", "js.cookie.min", skip_pipeline: true %>
 
 <%= javascript_include_tag "filters.min", skip_pipeline: true %>
 

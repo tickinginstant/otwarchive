@@ -28,7 +28,7 @@ var DEFAULT_SETTINGS = {
     processPrePopulate: false,
     makeSortable: false,
     escapeHTML: true,
-    animateDropdown: false,
+    animateDropdown: true,
     onResult: null,
     onAdd: null,
     onDelete: null,
