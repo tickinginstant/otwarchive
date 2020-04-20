@@ -76,6 +76,10 @@ When /^I choose "([^\"]+)" from the "([^\"]+)" autocomplete$/ do |text, fieldnam
     # Wait for the expected result to appear and click to select it
     find("li", text: text, visible: true).click
   end
+
+  # Make sure that the original, hidden field includes the newly chosen item:
+  original_field = field[:id].chomp("_autocomplete")
+  expect(page).to have_field(original_field, visible: false, with: /(^|,)#{text}($|,)/)
 end
 
 # alias for most common fields
