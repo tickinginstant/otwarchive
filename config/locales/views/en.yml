@@ -66,6 +66,11 @@ en:
       roles:
         heading: "Your admin roles:"
         none: "You currently have no admin roles assigned to you."
+  profile:
+    pseud_list:
+      more_pseuds:
+        one: "%{count} more pseud"
+        other: "%{count} more pseuds"
   users:
     delete_preview:
       heading: "What do you want to do with your works?"

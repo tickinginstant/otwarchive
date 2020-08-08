@@ -8,12 +8,10 @@
 
   <div class="wrapper">
     <dl class="meta">
-      <dt class="pseuds">
-        <%= link_to all_pseuds_link(@profile), user_pseuds_path(@user) %>
-      </dt>
-      <dd class="pseuds"><%= print_pseud_list(@profile.pseuds) %></dd>
+      <dt class="pseuds"><%= link_to ts("My pseuds:"), user_pseuds_path(@user) %></dt>
+      <dd class="pseuds"><%= print_pseud_list(@user, @pseuds) %></dd>
       <dt><%= ts("I joined on:") %></dt>
-      <dd><%= ts("%{date}", :date => l(@profile.created_at)) %></dd>
+      <dd><%= l(@profile.created_at) %></dd>
       <% if @profile.location %>
         <dt class="location"><%=h ts("I live in:") %></dt>
         <dd><%=h @profile.location %></dd>
