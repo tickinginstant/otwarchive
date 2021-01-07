@@ -4,6 +4,7 @@ class Tag < ApplicationRecord
   include Searchable
   include StringCleaner
   include WorksOwner
+  include CommentParent
 
   NAME = "Tag"
 
@@ -93,7 +94,6 @@ class Tag < ApplicationRecord
     tag.taggings_count = tag.taggings.count
   end
 
-  acts_as_commentable
   def commentable_name
     self.name
   end

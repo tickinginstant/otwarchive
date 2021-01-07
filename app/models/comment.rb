@@ -1,6 +1,7 @@
 class Comment < ApplicationRecord
   include ActiveModel::ForbiddenAttributesProtection
   include HtmlCleaner
+  include Responder
 
   belongs_to :pseud
   belongs_to :commentable, polymorphic: true
@@ -9,7 +10,10 @@ class Comment < ApplicationRecord
   has_many :inbox_comments, foreign_key: 'feedback_comment_id', dependent: :destroy
   has_many :users, through: :inbox_comments
 
-  has_many :thread_comments, class_name: 'Comment', foreign_key: :thread
+  has_many :comments, as: :commentable, dependent: :restrict_with_error
+  has_many :thread_comments, class_name: "Comment", foreign_key: :thread, inverse_of: :thread_parent
+  has_many :full_thread, class_name: "Comment", foreign_key: :thread, primary_key: :thread
+  belongs_to :thread_parent, class_name: "Comment", foreign_key: :thread
 
   validates_presence_of :name, unless: :pseud_id
   validates :email, email_veracity: {on: :create, unless: :pseud_id}, email_blacklist: {on: :create, unless: :pseud_id}
@@ -38,10 +42,6 @@ class Comment < ApplicationRecord
   scope :reviewed,        -> { where(unreviewed: false) }
   scope :unreviewed_only, -> { where(unreviewed: true) }
 
-  # Gets methods and associations from acts_as_commentable plugin
-  acts_as_commentable
-  has_comment_methods
-
   def akismet_attributes
     {
       key: ArchiveConfig.AKISMET_KEY,
@@ -58,7 +58,10 @@ class Comment < ApplicationRecord
   before_create :set_thread_for_replies
   before_create :set_parent_and_unreviewed
   after_create :update_thread
+
   before_create :adjust_threading, if: :reply_comment?
+  before_destroy :adjust_threading_on_destroy, if: :reply_comment?
+  after_destroy :check_can_destroy_parent, if: :reply_comment?
 
   after_create :update_work_stats
   after_destroy :update_work_stats
@@ -322,11 +325,12 @@ class Comment < ApplicationRecord
   # We need a unique thread id for replies, so we'll make use of the fact
   # that ids are unique
   def update_thread
-    self.update_attribute(:thread, self.id) unless self.thread
+    update_column(:thread, id) unless self.thread
   end
 
-  def adjust_threading
-    self.commentable.add_child(self)
+  # Returns true if the comment is a reply to another comment
+  def reply_comment?
+    self.commentable_type == self.class.to_s
   end
 
   # Is this a first-class comment?
@@ -355,11 +359,9 @@ class Comment < ApplicationRecord
     self.reply_comment? ? self.commentable.ultimate_parent.commentable_name : self.commentable.commentable_name
   end
 
-  # override this method from comment_methods.rb to return ultimate
-  alias :original_ultimate_parent :ultimate_parent
+  # Gets the object (work, bookmark, etc.) that the comment ultimately belongs to
   def ultimate_parent
-    myparent = self.original_ultimate_parent
-    myparent.kind_of?(Chapter) ? myparent.work : myparent
+    parent.is_a?(Chapter) ? parent.work : parent
   end
 
   def self.commentable_object(commentable)
@@ -398,6 +400,111 @@ class Comment < ApplicationRecord
   def sanitized_content
     sanitize_field self, :comment_content
   end
-  include Responder
 
+  # Lock the thread parent first, to make sure that we don't encounter
+  # deadlock, and then lock this comment:
+  def with_thread_lock
+    thread_parent.with_lock do
+      self.with_lock do
+        yield
+      end
+    end
+  end
+
+  # Only destroys childless comments, sets is_deleted to true for the rest
+  def destroy_or_mark_deleted
+    with_thread_lock do
+      if children_count.positive?
+        self.is_deleted = true
+        self.comment_content = "deleted comment"
+        save(validate: false)
+      else
+        destroy
+      end
+    end
+  end
+
+  # Adjusts threaded_left/threaded_right for other comments in the thread when
+  # this comment is created. Otherwise, children_count, full_set, and
+  # all_children won't work properly.
+  def adjust_threading
+    commentable.with_thread_lock do
+      if commentable.threaded_left.nil? || commentable.threaded_right.nil?
+        # The commentable is the root comment:
+        commentable.threaded_left = 1
+        commentable.threaded_right = 2
+      end
+
+      insertion_point = commentable.threaded_right
+
+      # Add ourselves at the insertion point:
+      self.threaded_left = insertion_point
+      self.threaded_right = insertion_point + 1
+
+      # Shift everything after the insertion point to the right:
+      commentable.full_thread.where("threaded_left > ?", insertion_point)
+        .update_all("threaded_left = (threaded_left + 2)")
+      commentable.full_thread.where("threaded_right > ?", insertion_point)
+        .update_all("threaded_right = (threaded_right + 2)")
+
+      commentable.threaded_right = insertion_point + 2
+      commentable.save(validate: false)
+    end
+  end
+
+  # Adjusts threaded_left/threaded_right for other comments in the thread when
+  # this comment is deleted. Otherwise, children_count, full_set, and
+  # all_children won't work properly.
+  def adjust_threading_on_destroy
+    with_thread_lock do
+      if threaded_left && threaded_right && threaded_left + 1 < threaded_right
+        errors.add(:base, "Can't destroy a comment that might have children!")
+        raise ActiveRecord::RecordInvalid, self
+      end
+
+      full_thread.where("threaded_left > ?", threaded_right)
+        .update_all("threaded_left = (threaded_left - 2)")
+      full_thread.where("threaded_right > ?", threaded_right)
+        .update_all("threaded_right = (threaded_right - 2)")
+    end
+  end
+
+  # When we delete a comment, we may be deleting the last of our parent's
+  # children. If our parent was marked as deleted (but not actually
+  # destroyed), we may be able to destroy it.
+  def check_can_destroy_parent
+    return unless commentable.is_a?(Comment)
+
+    commentable.with_thread_lock do
+      commentable.destroy if commentable.is_deleted? &&
+                             commentable.children_count.zero?
+    end
+  end
+
+  # Returns the total number of sub-comments
+  def children_count
+    threaded_right ? (threaded_right - threaded_left - 1) / 2 : 0
+  end
+
+  # Returns an ActiveRecord relation containing this comment and all of its
+  # descendants.
+  def full_set
+    if threaded_left && threaded_right
+      full_thread.where("threaded_left BETWEEN (?) AND (?)",
+                        threaded_left, threaded_right)
+    else
+      Comment.where(id: self.id)
+    end
+  end
+
+  # Returns an ActiveRecord relation containing all of this comment's
+  # descendants.
+  def all_children
+    if children_count.positive?
+      full_thread.where("threaded_left BETWEEN (?) AND (?)",
+                        threaded_left + 1, threaded_right - 1)
+    else
+      Comment.none
+    end
+  end
 end

@@ -6,11 +6,11 @@ class Chapter < ApplicationRecord
   include WorkChapterCountCaching
   include CreationNotifier
   include Creatable
+  include CommentParent
 
   belongs_to :work, inverse_of: :chapters
   # acts_as_list scope: 'work_id = #{work_id}'
 
-  acts_as_commentable
   has_many :kudos, as: :commentable
 
   validates_length_of :title, allow_blank: true, maximum: ArchiveConfig.TITLE_MAX,

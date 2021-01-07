@@ -153,3 +153,41 @@ describe "rake After:replace_dewplayer_embeds" do
     end.to output("Couldn't convert 1 chapter(s): #{dewplayer_work.first_chapter.id}\nConverted 0 chapter(s).\n").to_stdout
   end
 end
+
+describe "rake After:fix_comment_threading" do
+  let(:parent) { create(:admin_post) }
+
+  let!(:root) { create(:comment, commentable: parent) }
+  let!(:child1) { create(:comment, commentable: root) }
+  let!(:child2) { create(:comment, commentable: root) }
+  let!(:grandchild1a) { create(:comment, commentable: child1) }
+  let!(:grandchild1b) { create(:comment, commentable: child1) }
+  let!(:grandchild2a) { create(:comment, commentable: child2) }
+  let!(:grandchild2b) { create(:comment, commentable: child2) }
+
+  let!(:singleton) { create(:comment, commentable: parent) }
+
+  before { Comment.update_all(threaded_left: nil, threaded_right: nil) }
+
+  it "recalculates threaded_left and threaded_right" do
+    subject.invoke
+
+    expect(root.reload.threaded_left).to eq(1)
+    expect(child1.reload.threaded_left).to eq(2)
+    expect(grandchild1a.reload.threaded_left).to eq(3)
+    expect(grandchild1a.threaded_right).to eq(4)
+    expect(grandchild1b.reload.threaded_left).to eq(5)
+    expect(grandchild1b.threaded_right).to eq(6)
+    expect(child1.threaded_right).to eq(7)
+    expect(child2.reload.threaded_left).to eq(8)
+    expect(grandchild2a.reload.threaded_left).to eq(9)
+    expect(grandchild2a.threaded_right).to eq(10)
+    expect(grandchild2b.reload.threaded_left).to eq(11)
+    expect(grandchild2b.threaded_right).to eq(12)
+    expect(child2.threaded_right).to eq(13)
+    expect(root.threaded_right).to eq(14)
+
+    expect(singleton.reload.threaded_left).to eq(1)
+    expect(singleton.threaded_right).to eq(2)
+  end
+end

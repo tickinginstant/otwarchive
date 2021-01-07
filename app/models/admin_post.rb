@@ -1,9 +1,9 @@
 class AdminPost < ApplicationRecord
   include ActiveModel::ForbiddenAttributesProtection
+  include CommentParent
 
   self.per_page = 8 # option for WillPaginate
 
-  acts_as_commentable
   belongs_to :language
   belongs_to :translated_post, class_name: 'AdminPost'
   has_many :translations, class_name: 'AdminPost', foreign_key: 'translated_post_id'

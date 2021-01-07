@@ -1,15 +1,5 @@
-module CommentableEntity
-
-  def self.included(commentable)
-    commentable.class_eval do
-      has_many :comments, as: :commentable, dependent: :destroy
-      has_many :total_comments, class_name: 'Comment', as: :parent
-      extend ClassMethods
-    end
-  end
-
-  module ClassMethods
-  end
+module CommentUltimateParent
+  extend ActiveSupport::Concern
 
   # Returns all comments
   def find_all_comments
@@ -33,7 +23,7 @@ module CommentableEntity
       unreviewed: false,
       approved: true
     ).count
-  end  
+  end
 
   # Return the name of this commentable object
   # Should be overridden in the implementing class if necessary
