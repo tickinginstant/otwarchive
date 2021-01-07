@@ -42,6 +42,71 @@ describe User do
     end
 
     describe "on an invalid user" do
+      context "when there are banned user names" do
+        before do
+          allow(ArchiveConfig).to receive(:BANNED_USER_NAMES).and_return(["Admin"])
+        end
+
+        shared_examples "the login is banned" do
+          context "when the user is creating an account" do
+            let(:user) { build(:user) }
+
+            it "generates an error" do
+              user.login = login
+              expect(user.save).to be_falsey
+              expect(user.errors.full_messages).to include("Login is reserved")
+              expect(user.new_record?).to be_truthy
+            end
+          end
+
+          context "when the user is renaming their account" do
+            let(:user) { create(:user) }
+
+            it "generates an error" do
+              user.login = login
+              expect(user.save).to be_falsey
+              expect(user.errors.full_messages).to include("Login is reserved")
+              expect(user.reload.login).not_to eq login
+            end
+          end
+
+          context "when the user has a grandfathered account with a banned name" do
+            let(:user) do
+              build(:user, login: login).tap do |user|
+                user.save(validate: false)
+              end
+            end
+
+            let(:new_email) { Faker::Internet.email }
+
+            it "allows the user to update other fields" do
+              user.email = new_email
+              expect(user.save).to be_truthy
+              expect(user.reload.login).to eq login
+              expect(user.reload.email).to eq new_email
+            end
+          end
+        end
+
+        context "when the user's login exactly matches one of the banned user names" do
+          let(:login) { "Admin" }
+
+          it_behaves_like "the login is banned"
+        end
+
+        context "when the user's login is a lowercase version of one of the banned user names" do
+          let(:login) { "admin" }
+
+          it_behaves_like "the login is banned"
+        end
+
+        context "when the user's login is a capitalized version of one of the banned user names" do
+          let(:login) { "ADMIN" }
+
+          it_behaves_like "the login is banned"
+        end
+      end
+
       context "missing the age_over_13 flag" do
         let(:no_age_over_13) { build(:user, age_over_13: "0") }
 
