@@ -7,7 +7,6 @@ class CommentsController < ApplicationController
                                               :delete_comment, :cancel_comment_delete, :unreviewed, :review_all ]
   before_action :check_user_status, only: [:new, :create, :edit, :update, :destroy]
   before_action :load_comment, only: [:show, :edit, :update, :delete_comment, :destroy, :cancel_comment_edit, :cancel_comment_delete, :review, :approve, :reject, :freeze, :unfreeze]
-  before_action :check_visibility, only: [:show]
   before_action :check_if_restricted
   before_action :check_tag_wrangler_access
   before_action :check_parent
@@ -207,7 +206,6 @@ class CommentsController < ApplicationController
 
   def index
     if !@commentable.nil?
-      @comments = @commentable.comments.reviewed.page(params[:page])
       if @commentable.class == Comment
         # we link to the parent object at the top
         @commentable = @commentable.ultimate_parent
@@ -440,8 +438,6 @@ class CommentsController < ApplicationController
   end
 
   def show_comments
-    @comments = @commentable.comments.reviewed.page(params[:page])
-
     respond_to do |format|
       format.html do
         # if non-ajax it could mean sudden javascript failure OR being redirected from login

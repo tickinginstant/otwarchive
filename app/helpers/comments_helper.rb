@@ -357,4 +357,54 @@ module CommentsHelper
     parent.respond_to?(:moderated_commenting_enabled) && parent.moderated_commenting_enabled?
   end
 
+  # Generates the list item to wrap around the comment. Sets classes based on
+  # properties of the comments.
+  def comment_list_item(comment)
+    classes = [:comment, :group, cycle(:odd, :even)]
+
+    classes << :unreviewed if comment.unreviewed?
+    classes << :unavailable if comment.hidden_by_admin?
+    classes << :spam unless comment.approved?
+    classes << :deleted if comment.is_deleted?
+
+    tag.li(id: "comment_#{comment.id}", class: classes, role: :article) do
+      yield
+    end
+  end
+
+  # Figure out which threads are visible to the current user, and load the
+  # comments associated with those threads. Then wrap them in a decorator for
+  # display.
+  def comments_for_display(commentable)
+    # First we get all comments that have this commentable listed as a parent
+    # (not a commentable). This lets us figure out which threads should be
+    # displayed because they contain at least one visible comment, even if the
+    # top-level comment is hidden for some reason.
+    total_comments = commentable.total_comments
+
+    visible_comments = if logged_in_as_admin?
+                         total_comments.visible_to_admin
+                       elsif commentable.commentable_owners.include?(current_user)
+                         total_comments.visible_to_commentable_owner
+                       elsif logged_in?
+                         total_comments.visible_to_user(current_user)
+                       else
+                         total_comments.visible_to_all
+                       end
+
+    # Paginate the thread IDs, then replace the contents of the page with
+    # fully-loaded comment objects.
+    visible_comments.thread_ids.paginate(
+      page: params[:page], per_page: Comment.per_page
+    ).tap do |page_thread_ids|
+      page_comments = Comment.for_threaded_display.where(id: page_thread_ids).to_a
+
+      # Wrap all comments in a ThreadedCommentDecorator:
+      page_comments = page_comments.map do |comment|
+        ThreadedCommentDecorator.decorate(comment, loaded: true)
+      end
+
+      page_thread_ids.replace(page_comments)
+    end
+  end
 end

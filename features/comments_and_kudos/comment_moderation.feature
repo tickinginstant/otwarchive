@@ -4,7 +4,6 @@ Feature: Comment Moderation
   As an author
   I'd like to be able to moderate comments
 
-
   Scenario: Turn off comments from anonymous users who can still leave kudos
     Given I am logged in as "author"
       And I set up the draft "No Anons"
@@ -246,13 +245,13 @@ Feature: Comment Moderation
       And I uncheck "Enable comment moderation"
       And I post the work without preview
     Then comment moderation should not be enabled on "Moderation"
-    When I view the work "Moderation"
+    When I view the work "Moderation" with comments
     Then I should see "Unreviewed Comments"
       And I should not see "Comments:1"
     When I go to my inbox page
     Then I should not see "Reply"
-    When I am logged in as "commenter"
-      And I view the work "Moderation"
+    When I am logged in as "random"
+      And I view the work "Moderation" with comments
     Then I should not see "has chosen to moderate comments"
       And I should not see "Interesting Comment"
     When I post the comment "New Comment" on the work "Moderation"

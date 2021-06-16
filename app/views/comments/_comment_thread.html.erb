@@ -1,23 +1,24 @@
 <!-- START thread -->
 <ol class="thread">
   <% for comment in comments %>
-    <% if comment.approved? || logged_in_as_admin? %>
+    <% comment = ThreadedCommentDecorator.decorate(comment) unless comment.is_a?(ThreadedCommentDecorator) %>
+    <% next unless comment.visible? || comment.visible_descendants? %>
 
-      <%= render 'comments/single_comment', single_comment: comment %>
-      <% child_comments = comment.comments.reviewed %>
+    <%= render 'comments/single_comment', single_comment: comment %>
 
-      <% if child_comments && child_comments.count > 0 %>
-        <!-- cut off the recursion when we get too deep, but not if there's just one last measly comment left -->
-        <% if depth >= ArchiveConfig.COMMENT_THREAD_MAX_DEPTH && child_comments.count > 1 %>
-          <li class="comment"><p>(<%= link_to ts("%{count} more comments in this thread", count: comment.children_count), comment_path(comment) %>)</p></li>
-        <% else %>
-          <li>
-            <%= render 'comments/comment_thread', comments: child_comments, depth: depth+1 %>
-            </ol> <!-- needed to close thread -->
-          </li>
-        <% end %>
+    <% if comment.visible_descendants? %>
+      <% # cut off the recursion when we get too deep, but not if there's just one last measly comment left %>
+      <% if depth >= ArchiveConfig.COMMENT_THREAD_MAX_DEPTH &&
+            comment.count_visible_descendants > 1 %>
+        <li class="comment"><p class="message">(<%= link_to ts("%{count} more comments in this thread", count: comment.count_visible_descendants), comment_path(comment) %>)</p></li>
+      <% elsif comment.visible_replies.any? %>
+        <li>
+          <%= render 'comments/comment_thread',
+                     comments: comment.visible_replies,
+                     depth: depth+1 %>
+        </li>
       <% end %>
-
     <% end %>
   <% end %>
+</ol>
 <!-- END thread -->

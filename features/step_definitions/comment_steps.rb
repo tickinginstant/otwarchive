@@ -14,6 +14,27 @@ Given /^I have the receive no comment notifications setup$/ do
   user.preference.save
 end
 
+Given "there is/are {int} comment(s) per page" do |count|
+  allow(Comment).to receive(:per_page).and_return(count)
+end
+
+Given "the work {string} has {int} {word} comment(s)" do |title, count, type|
+  chapter = Work.find_by(title: title).last_posted_chapter
+  comments = FactoryBot.create_list(:comment, count, :by_guest,
+                                    commentable: chapter)
+
+  case type
+  when "spam"
+    comments.each { |comment| comment.update_columns(approved: false) }
+  when "hidden"
+    comments.each { |comment| comment.update_columns(hidden_by_admin: true) }
+  when "deleted"
+    comments.each { |comment| comment.update_columns(is_deleted: true) }
+  when "unreviewed"
+    comments.each { |comment| comment.update_columns(unreviewed: true) }
+  end
+end
+
 # THEN
 
 Then /^the comment's posted date should be nowish$/ do
@@ -38,6 +59,19 @@ Then /^I should see Last Edited in the right timezone$/ do
   zone = Time.current.in_time_zone(Time.zone).zone
   step %{I should see "#{zone}" within ".comment .posted"}
   step %{I should see "Last Edited"}
+end
+
+Then "there should be {int} page(s) of comments" do |count|
+  expect(page).to have_css("li.comment")
+
+  if count == 1
+    expect(page).to have_no_css(".pagination")
+  else
+    with_scope(".pagination") do
+      expect(page).to have_content(count)
+      expect(page).to have_no_content(count + 1)
+    end
+  end
 end
 
 # WHEN

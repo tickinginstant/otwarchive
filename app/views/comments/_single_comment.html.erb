@@ -1,5 +1,5 @@
 <!-- START of single comment -->
-<li class="<% if single_comment.unreviewed? %>unreviewed <% end %>comment group <%= cycle :odd, :even %>" id="comment_<%= single_comment.id %>" role="article">
+<%= comment_list_item(single_comment) do %>
   <% if params[:edit_comment_id] && params[:edit_comment_id] == single_comment.id.to_s && can_edit_comment?(single_comment) %>
     <!-- we're editing this comment -->
     <%= render 'comments/comment_form',
@@ -7,13 +7,7 @@
         :commentable => single_comment.commentable,
         :button_name => ts('Update') %>
   <% else %>
-    <% if single_comment.is_deleted %>
-      <p>
-        <%= ts("(Previous comment deleted.)") %>
-      </p>
-    <% elsif single_comment.hidden_by_admin? && !logged_in_as_admin? %>
-      <p class="message"><%= ts("(This comment is under review by an admin and is currently unavailable.)") %></p>
-    <% else %>
+    <% if single_comment.visible? %>
       <% cache(key: "/v2/single_comment/#{single_comment.id}/#{single_comment.edited_at}/#{single_comment.updated_at}", expires_in: 1.week, skip_digest: true ) do %>
         <% # FRONT END, update this if a.user comes in %>
         <h4 class="heading byline">
@@ -66,7 +60,9 @@
         <p class="ip"><%= ts("IP Address: %{ip_address}", ip_address: single_comment.ip_address.blank? ? "No address recorded" : single_comment.ip_address) %></p>
       <% end %>
       <%= render "comments/comment_actions", comment: single_comment %>
+    <% else %>
+      <%= render "comments/hidden_comment", hidden_comment: single_comment %>
     <% end %>
   <% end %>
-</li>
+<% end %>
 <!-- END of single comment -->

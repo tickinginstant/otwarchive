@@ -37,3 +37,60 @@ Feature: Marking comments as spam
 
     When I follow "Default Admin Post"
     Then I should see "Comments (1)"
+
+  Scenario: Spam comments should not be visible to logged-out users.
+    Given the work "Spam Central"
+      And I view the work "Spam Central" with comments
+      And I post a guest comment
+      And I post a spam comment
+      And all comments by "spammer" are marked as spam
+
+    When I view the work "Spam Central" with comments
+
+    Then I should see "This was really lovely!"
+      But I should not see "Buy my product!"
+      And I should not see "http://spam.org"
+
+  Scenario: Spam comments should not be visible to the work creator.
+    Given the work "Spam Central"
+      And I view the work "Spam Central" with comments
+      And I post a guest comment
+      And I post a spam comment
+      And all comments by "spammer" are marked as spam
+
+    When I am logged in as the author of "Spam Central"
+      And I view the work "Spam Central" with comments
+
+    Then I should see "This was really lovely!"
+      But I should not see "Buy my product!"
+      And I should not see "http://spam.org"
+
+  Scenario: Spam comments should be visible to admins.
+    Given the work "Spam Central"
+      And I view the work "Spam Central" with comments
+      And I post a guest comment
+      And I post a spam comment
+      And all comments by "spammer" are marked as spam
+
+    When I am logged in as an admin
+      And I view the work "Spam Central" with comments
+
+    Then I should see "This was really lovely!"
+      And I should see "Buy my product!"
+      And I should see "http://spam.org"
+
+  Scenario: Replies to spam comments should be visible to everyone.
+    Given the work "Spam Central"
+      And I view the work "Spam Central" with comments
+      And I post a spam comment
+      And I am logged in as a random user
+      And I view the work "Spam Central" with comments
+      And I reply to a comment with "How dare you spam my favorite work!"
+      And all comments by "spammer" are marked as spam
+
+    When I am logged out
+      And I view the work "Spam Central" with comments
+
+    Then I should not see "Buy my product!"
+      And I should not see "http://spam.org"
+      But I should see "How dare you spam my favorite work!"

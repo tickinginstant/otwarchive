@@ -198,4 +198,6 @@ class Chapter < ApplicationRecord
     super
     work&.expire_comments_count
   end
+
+  delegate :commentable_owners, to: :work
 end

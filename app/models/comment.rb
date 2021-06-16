@@ -38,6 +38,54 @@ class Comment < ApplicationRecord
   scope :not_deleted,     -> { where(is_deleted: false) }
   scope :reviewed,        -> { where(unreviewed: false) }
   scope :unreviewed_only, -> { where(unreviewed: true) }
+  scope :not_spam,        -> { where(approved: true) }
+  scope :not_hidden,      -> { where(hidden_by_admin: false) }
+
+  scope :visible_to_all, -> { not_deleted.not_spam.not_hidden.reviewed }
+  scope :visible_to_commentable_owner, -> { not_deleted.not_spam.not_hidden }
+  scope :visible_to_admin, -> { not_deleted }
+
+  scope :for_display,
+        -> { includes(:parent, pseud: :user) }
+  scope :for_threaded_display,
+        -> { includes(thread_comments: [:parent, pseud: :user]) }
+
+  # Returns an array of thread IDs.
+  def self.thread_ids
+    distinct.pluck(:thread)
+  end
+
+  # Returns a scope of comments visible to the given user. Doesn't account for
+  # admins/commentable owners.
+  def self.visible_to_user(user = User.current_user)
+    return visible_to_all unless user.is_a?(User)
+
+    not_deleted.not_spam.not_hidden.left_joins(:pseud)
+      .where("comments.unreviewed = 0 OR pseuds.user_id = ?", user.id)
+  end
+
+  # Compute whether or not the specified user has permission to see this
+  # comment.
+  def visible?(user = User.current_user)
+    # No one can see deleted comments:
+    return false if is_deleted
+
+    # Admins can see all comments (except deleted comments):
+    return true if user.is_a?(Admin)
+
+    # Normal users can't see spam or comments hidden by an admin:
+    return false if hidden_by_admin || !approved
+
+    # The only reason left to hide the comment is if it's unreviewed:
+    return true unless unreviewed
+
+    # Only the owner of the comment or the owner of the parent can view
+    # unreviewed comments:
+    user.is_a?(User) && (
+      user.is_author_of?(ultimate_parent) ||
+      user.is_author_of?(self)
+    )
+  end
 
   # Gets methods and associations from acts_as_commentable plugin
   acts_as_commentable
@@ -426,5 +474,4 @@ class Comment < ApplicationRecord
     sanitize_field self, :comment_content
   end
   include Responder
-
 end

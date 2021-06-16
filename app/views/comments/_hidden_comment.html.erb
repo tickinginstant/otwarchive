@@ -1,0 +1,14 @@
+<% # expects local variable hidden_comment %>
+<p class="message">
+<%= if hidden_comment.is_deleted
+      ts("(Previous comment deleted.)")
+    elsif hidden_comment.hidden_by_admin?
+      ts("(This comment is under review by an admin and is currently unavailable.)")
+    elsif !hidden_comment.approved?
+      ts("(This comment was marked as spam.)")
+    elsif hidden_comment.unreviewed?
+      ts("(This comment is under review by the creator.)")
+    else
+      ts("(This comment is hidden for an unknown reason.)")
+    end %>
+</p>

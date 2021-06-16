@@ -31,12 +31,7 @@ module CommentableEntity
   # accurate value is important (e.g. when updating the StatCounter in the
   # database).
   def count_visible_comments_uncached
-    self.total_comments.where(
-      hidden_by_admin: false,
-      is_deleted: false,
-      unreviewed: false,
-      approved: true
-    ).count
+    total_comments.visible_to_all.count
   end
 
   # The total number of visible comments on this commentable. Cached to reduce
