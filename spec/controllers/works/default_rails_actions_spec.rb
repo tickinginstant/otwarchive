@@ -508,6 +508,39 @@ describe WorksController, work_search: true do
       expect(update_work.pseuds.reload).not_to include(no_co_creator.default_pseud)
       expect(update_work.user_has_creator_invite?(no_co_creator)).to be_falsey
     end
+
+    it "doesn't set revised_at to the future when redating a backdated work to today" do
+      # January 1, 2021 at 6:00 AM UTC:
+      backdated = travel_to Time.utc(2021, 1, 1, 6) do
+        create(:work, backdate: true, authors: [update_user.default_pseud])
+      end
+
+      # February 1, 2021 at 6:00 AM UTC:
+      travel_to Time.utc(2021, 2, 1, 6) do
+        put :update, params: { id: backdated.id, work: { chapter_attributes: { published_at: Time.zone.today } } }
+        expect(assigns[:work].revised_at).to eq(Time.current)
+      end
+    end
+
+    it "updates revised_at for backdated works when the ruby time zone doesn't match the system time zone" do
+      # February 1, 2021 at 1:00 AM UTC:
+      time = Time.utc(2021, 2, 1, 1)
+
+      travel_to time do
+        # Override Time.now & Date.today to mimic a system time of UTC:
+        allow(Time).to receive(:now) { time }
+        allow(Date).to receive(:today) { time.to_date }
+
+        backdated = create(:work, backdate: true, authors: [update_user.default_pseud])
+        expect(backdated.revised_at).to eq(time)
+        expect(backdated.chapters.first.published_at).to eq(time.to_date)
+
+        new_date = Date.new(2021, 1, 1)
+        put :update, params: { id: backdated.id, work: { chapter_attributes: { published_at: new_date } } }
+        expect(assigns[:work].revised_at).to eq(Time.utc(2021, 1, 1, 12))
+        expect(assigns[:work].chapters.first.published_at).to eq(new_date)
+      end
+    end
   end
 
   describe "collected" do

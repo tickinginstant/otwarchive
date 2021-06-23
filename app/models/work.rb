@@ -528,29 +528,35 @@ class Work < ApplicationRecord
   end
 
   def set_revised_at(date=nil)
-    date ||= self.chapters.where(posted: true).maximum('published_at') ||
-        self.revised_at || self.created_at || DateTime.now
+    date ||= chapters.posted.maximum(:published_at) ||
+             revised_at || created_at || Time.current
     date = date.instance_of?(Date) ? DateTime::jd(date.jd, 12, 0, 0) : date
-    self.revised_at = date
+
+    # Never set revised_at to the future:
+    self.revised_at = [date, Time.current].min
   end
 
   def set_revised_at_by_chapter(chapter)
     return if self.posted? && !chapter.posted?
+
     # Invalidate chapter count cache
     self.invalidate_work_chapter_count(self)
-    if (self.new_record? || chapter.posted_changed?) && chapter.published_at == Date.today
-      self.set_revised_at(Time.now) # a new chapter is being posted, so most recent update is now
-    elsif self.revised_at.nil? ||
-        (chapter.published_at && chapter.published_at > self.revised_at.to_date) ||
-        chapter.published_at_changed? && chapter.published_at_was == self.revised_at.to_date
-      # revised_at should be (re)evaluated to reflect the chapter's pub date
-      max_date = self.chapters.where('id != ? AND posted = 1', chapter.id).maximum('published_at')
-      max_date = max_date.nil? ? chapter.published_at : [max_date, chapter.published_at].max
-      self.set_revised_at(max_date)
-    # else
-      # In all other cases, we don't want to touch revised_at, since the chapter's pub date doesn't
-      # affect it. Setting revised_at to any Date will change its time to 12:00, likely changing the
-      # work's position in date-sorted indexes, so don't do it unnecessarily.
+
+    if (new_record? || chapter.posted_changed?) && !backdate?
+      # If the user is making a major change -- that is, if the chapter is
+      # being posted, or the work is brand new -- then we want to set
+      # revised_at to the current time (unless the work is backdated).
+      self.revised_at = Time.current
+    elsif new_record? || chapter.posted_changed? || chapter.published_at_changed?
+      # Otherwise, we want to recompute revised_at based on the chapter
+      # publication dates.
+      other_chapters = chapters.where.not(id: chapter.id)
+      other_chapters = other_chapters.posted if posted?
+
+      set_revised_at([
+        chapter.published_at,
+        other_chapters.maximum(:published_at)
+      ].compact.max)
     end
   end
 
